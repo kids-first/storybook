@@ -1,0 +1,36 @@
+{
+  "name": "@storybook/addon-liveedit",
+  "version": "4.0.0-alpha.21",
+  "description": "Live edition addon for storybook",
+  "keywords": [
+    "storybook"
+  ],
+  "homepage": "https://github.com/storybooks/storybook/tree/master/addons/liveedit",
+  "bugs": {
+    "url": "https://github.com/storybooks/storybook/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/storybooks/storybook.git"
+  },
+  "license": "MIT",
+  "main": "dist/index.js",
+  "jsnext:main": "src/index.js",
+  "scripts": {
+    "prepare": "node ../../scripts/prepare.js"
+  },
+  "dependencies": {
+    "@babel/runtime": "^7.0.0",
+    "@babel/standalone": "^7.0.0",
+    "@storybook/addons": "4.0.0-alpha.21",
+    "@storybook/components": "4.0.0-alpha.21",
+    "estraverse": "^4.2.0",
+    "loader-utils": "^1.1.0",
+    "prettier": "^1.14.0",
+    "prop-types": "^15.6.2",
+    "react-syntax-highlighter": "^8.0.1"
+  },
+  "peerDependencies": {
+    "react": "*"
+  }
+}

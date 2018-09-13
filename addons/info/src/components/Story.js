@@ -1,12 +1,16 @@
 /* eslint no-underscore-dangle: 0 */
-
+/* eslint-ignore jsx-a11y/label-has-associated-control prefer-destructuring no-undef   */
 import React, { Component, createElement } from 'react';
+import ReactDOMServer from 'react-dom/server';
 import { polyfill } from 'react-lifecycles-compat';
 import PropTypes from 'prop-types';
 import global from 'global';
 import { baseFonts } from '@storybook/components';
-
+import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
+import { mapKeys } from 'lodash';
 import marksy from 'marksy';
+import SyntaxHighlighter from 'react-syntax-highlighter';
+import { docco } from 'react-syntax-highlighter/styles/hljs';
 
 import Node from './Node';
 import { Pre } from './markdown';
@@ -111,6 +115,31 @@ class Story extends Component {
       createElement,
       elements: props.components,
     });
+  }
+
+  componentDidMount() {
+    // TODO: better way to add stylesheets into preview area
+    this._appendStylesheet(
+      'reactTabs',
+      `.react-tabs{-webkit-tap-highlight-color:transparent; width: 100%;}.react-tabs__tab-list{border-bottom:1px solid #aaa;margin:0 0 10px;padding:0}.react-tabs__tab{display:inline-block;border:1px solid transparent;border-bottom:none;bottom:-1px;position:relative;list-style:none;padding:6px 12px;cursor:pointer}.react-tabs__tab--selected{background:#fff;border-color:#aaa;color:#000;border-radius:5px 5px 0 0}.react-tabs__tab--disabled{color:GrayText;cursor:default}.react-tabs__tab:focus{box-shadow:0 0 5px #0187fd;border-color:#0187fd;outline:0}.react-tabs__tab:focus:after{content:"";position:absolute;height:5px;left:-4px;right:-4px;bottom:-5px;background:#fff}.react-tabs__tab-panel{display:none}.react-tabs__tab-panel--selected{display:block}`
+    );
+    this._appendStylesheet(
+      'prismjs',
+      `code[class*=language-],pre[class*=language-]{color:#000;background:0 0;text-shadow:0 1px #fff;font-family:Consolas,Monaco,'Andale Mono','Ubuntu Mono',monospace;text-align:left;white-space:pre;word-spacing:normal;word-break:normal;word-wrap:normal;line-height:1.5;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-hyphens:none;-moz-hyphens:none;-ms-hyphens:none;hyphens:none}code[class*=language-] ::-moz-selection,code[class*=language-]::-moz-selection,pre[class*=language-] ::-moz-selection,pre[class*=language-]::-moz-selection{text-shadow:none;background:#b3d4fc}code[class*=language-] ::selection,code[class*=language-]::selection,pre[class*=language-] ::selection,pre[class*=language-]::selection{text-shadow:none;background:#b3d4fc}@media print{code[class*=language-],pre[class*=language-]{text-shadow:none}}pre[class*=language-]{padding:1em;margin:.5em 0;overflow:auto}:not(pre)>code[class*=language-],pre[class*=language-]{background:#f5f2f0}:not(pre)>code[class*=language-]{padding:.1em;border-radius:.3em;white-space:normal}.token.cdata,.token.comment,.token.doctype,.token.prolog{color:#708090}.token.punctuation{color:#999}.namespace{opacity:.7}.token.boolean,.token.constant,.token.deleted,.token.number,.token.property,.token.symbol,.token.tag{color:#905}.token.attr-name,.token.builtin,.token.char,.token.inserted,.token.selector,.token.string{color:#690}.language-css .token.string,.style .token.string,.token.entity,.token.operator,.token.url{color:#9a6e3a;background:hsla(0,0%,100%,.5)}.token.atrule,.token.attr-value,.token.keyword{color:#07a}.token.class-name,.token.function{color:#DD4A68}.token.important,.token.regex,.token.variable{color:#e90}.token.bold,.token.important{font-weight:700}.token.italic{font-style:italic}.token.entity{cursor:help}`
+    );
+  }
+
+  _appendStylesheet(title, miniCss) {
+    if (!miniCss) return;
+    /* eslint-disable prefer-destructuring, no-undef */
+    const head = window.document.head;
+    const link = window.document.createElement('style');
+    link.title = title;
+    link.type = 'text/css';
+    link.rel = 'stylesheet';
+    link.innerText = miniCss;
+
+    head.appendChild(link);
   }
 
   _renderStory() {
@@ -269,6 +298,16 @@ class Story extends Component {
       children,
     } = this.props;
     const { stylesheet } = this.state;
+    const allCSS = [];
+
+    // get all non-external stylesheets css rules
+    /* eslint-disable no-plusplus, no-undef */
+    for (let i = 0; i < window.document.styleSheets.length; i++) {
+      const ss = window.document.styleSheets[i];
+      if (ss && !ss.href) allCSS.push(ss.cssRules);
+    }
+    const rulesArr = allCSS.map(rules => mapKeys(rules, val => val.selectorText));
+    const styleRules = rulesArr.reduce((acc, rules) => ({ ...acc, ...rules }));
 
     if (!showSource) {
       return null;
@@ -277,19 +316,81 @@ class Story extends Component {
     return (
       <div>
         <h1 style={stylesheet.source.h1}>Story Source</h1>
-        <Pre>
-          {React.Children.map(children, (root, idx) => (
-            <Node
-              key={idx}
-              node={root}
-              depth={0}
-              maxPropsIntoLine={maxPropsIntoLine}
-              maxPropObjectKeys={maxPropObjectKeys}
-              maxPropArrayLength={maxPropArrayLength}
-              maxPropStringLength={maxPropStringLength}
-            />
-          ))}
-        </Pre>
+
+        {React.Children.map(children, (root, idx) => {
+          const markup = ReactDOMServer.renderToString(root);
+          const styles = [];
+          // TODO: better regex matching
+          let classes = markup
+            .match(/class=".*?"/g)[0]
+            .replace(`class="`, '')
+            .replace(`"`, '');
+
+          classes = classes.split(' ').map(x => `.${x}`);
+
+          classes.forEach(cls => {
+            styles.push(styleRules[cls].cssText);
+          });
+
+          return (
+            <Tabs>
+              <TabList>
+                <Tab>JSX</Tab>
+                <Tab>HTML</Tab>
+                <Tab>CSS</Tab>
+              </TabList>
+              <TabPanel>
+                <Pre>
+                  <Node
+                    key={idx}
+                    node={root}
+                    depth={0}
+                    maxPropsIntoLine={maxPropsIntoLine}
+                    maxPropObjectKeys={maxPropObjectKeys}
+                    maxPropArrayLength={maxPropArrayLength}
+                    maxPropStringLength={maxPropStringLength}
+                  />
+                </Pre>
+              </TabPanel>
+              <TabPanel>
+                <Pre>
+                  <SyntaxHighlighter language="markup" style={docco}>
+                    {ReactDOMServer.renderToString(root)
+                      .replace(`data-reactroot=""`, '')
+                      .replace(/>/gi, '>\n')
+                      .replace(/<\//, '\n<')}
+                  </SyntaxHighlighter>
+                </Pre>
+              </TabPanel>
+              <TabPanel>
+                <Pre>
+                  <SyntaxHighlighter language="css" style={docco}>
+                    {// TODO: much better means of adding indentation
+                    styles
+                      .map(styl =>
+                        styl
+                          .split(';')
+                          .map((decl, index, arr) => {
+                            if (index === 0) {
+                              const _decl = decl.split('{');
+                              return `${_decl[0]}{ \n ${_decl[1]}`;
+                            }
+                            if (index === arr.length - 1) {
+                              const _decl = decl.split('}');
+                              return `${_decl[0]}}`;
+                            }
+                            return ` ${decl}`;
+                          })
+                          .join(';\n')
+                          .trim()
+                      )
+                      .join('\n\n')}
+                  </SyntaxHighlighter>
+                </Pre>
+              </TabPanel>
+            </Tabs>
+          );
+        })}
       </div>
     );
   }
@@ -385,7 +486,9 @@ class Story extends Component {
   }
 }
 
-Story.getDerivedStateFromProps = ({ styles }) => ({ stylesheet: styles(stylesheetBase) });
+Story.getDerivedStateFromProps = ({ styles }) => ({
+  stylesheet: styles(stylesheetBase),
+});
 
 Story.displayName = 'Story';
 

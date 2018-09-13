@@ -1,7 +1,0 @@
-{
-  "name": "@storybook/core-events",
-  "version": "4.0.0-alpha.21",
-  "description": "Event names used in storybook core",
-  "license": "MIT",
-  "main": "index.js"
-}
